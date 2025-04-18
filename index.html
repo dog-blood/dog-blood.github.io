@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Cyberpunk Lorentz Transformation – Continuous Flow</title>
+    <style>
+      body { 
+        margin: 0; 
+        background: #000; 
+        color: #b8ea0f;
+        font-family: "Consolas", monospace;
+      }
+      canvas {
+        display: block;
+        margin: 20px auto;
+        border: 1px solid #a9db0339;
+        background: #000;
+      }
+      p { 
+        text-align: center; 
+        font-family: "Consolas", monospace;
+        color: #b8ea0f;
+      }
+      .control-panel {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 10px 15px;
+        border: 1px solid #b8ea0f;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+      }
+      .cyber-slider {
+        -webkit-appearance: none;
+        width: 200px;
+        height: 5px;
+        background: #8bb10b45;
+        border-radius: 3px;
+        border: 1px solid #b8ea0f;
+        margin-top: 10px;
+      }
+      .cyber-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 15px;
+        height: 15px;
+        background: #b8ea0f;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+      }
+      .cyber-slider::-moz-range-thumb {
+        width: 15px;
+        height: 15px;
+        background: #b8ea0f;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+      }
+      /* All slider value displays */
+      #speedValue, #densityValue, #accelValue, #scaleDisplay, #globalScaleDisplay {
+        color: #b8ea0f;
+        margin-left: 5px;
+      }
+      .control-group {
+        margin: 10px 0;
+        margin-top:20px;
+      }
+      .control-group label {
+        display: block;
+        width: 100%;
+      }
+      .slider-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #rapidityCanvas {
+        position: absolute;
+        top: 105px;
+        left: 50%;
+        transform: translateX(-50%);
+        pointer-events: none;
+        border: none;
+        background: transparent;
+      }
+      /* Both canvases share the same positioning, but their sizes will be set dynamically */
+      #canvas, #overlayCanvas {
+        position: absolute;
+        top: 105px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      #overlayCanvas {
+        pointer-events: none;
+        border: none;
+        background: transparent;
+        transform: translate(-50%, -10%);
+      }
+      .checkbox-container {
+        margin-top: 15px;
+      }
+      .checkbox-container label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      #toggleVisuals {
+        display: none;
+      }
+      .cyber-check {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border: 1px solid #b8ea0f;
+        position: relative;
+        background: rgba(0, 0, 0, 0.8);
+      }
+      #toggleVisuals:checked + .cyber-check::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        top: 3px;
+        width: 7px;
+        height: 7px;
+        background: #b8ea0f;
+        box-shadow: 0 0 5px rgba(184, 234, 15, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="control-panel">
+      <div class="control-group">
+        <label>Sim Speed</label>
+        <div class="slider-container">
+          <input type="range" id="speedSlider" min="10" max="300" value="100" class="cyber-slider">
+          <span id="speedValue">100</span>%
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Event Density</label>
+        <div class="slider-container">
+          <input type="range" id="densitySlider" min="5" max="2000" value="100" class="cyber-slider">
+          <span id="densityValue">100</span>%
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Acceleration</label>
+        <div class="slider-container">
+          <input type="range" id="accelSlider" min="5" max="300" value="100" class="cyber-slider">
+          <span id="accelValue">100</span>%
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Pixels Per Unit Time</label>
+        <div class="slider-container">
+          <input type="range" id="scaleSlider" min="1" max="50" value="10" class="cyber-slider">
+          <span id="scaleDisplay">10</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Resolution</label>
+        <div class="slider-container">
+          <input type="range" id="globalScaleSlider" min="0.5" max="5" step="0.5" value="1" class="cyber-slider">
+          <span id="globalScaleDisplay">1</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Flow Rate</label>
+        <div class="slider-container">
+          <input type="range" id="flowRateSlider" min="100" max="200" value="100" class="cyber-slider">
+          <span id="flowRateValue">100</span>%
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="checkbox-container">
+          <label>
+            <input type="checkbox" id="toggleVisuals" checked>
+            <span class="cyber-check"></span>
+            Show Visual Guides
+          </label>
+        </div>
+      </div>
+    </div>
+    </div>
+    
+    <p>
+      Use LEFT/RIGHT arrow keys to accelerate.  
+    </p>
+    <!-- The canvases themselves have no hardcoded width/height now -->
+    <canvas id="canvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+    <canvas id="rapidityCanvas"></canvas>
+    <script>
+      /**************************************
+       * Logical (Coordinate) Dimensions  *
+       **************************************/
+      // These numbers define the drawing coordinate space.
+      const logicalWidth = 800;
+      const logicalHeight = 800;
+      // The overlay canvas is kept a bit larger so that the axis ticks (drawn outside the main area) remain visible.
+      const logicalOverlayWidth = 1000;
+      const logicalOverlayHeight = 1000;
+      const FLOW_RATE = 0.5;
+      // Global scale (for resolution) – when >1, the internal pixel dimensions are increased.
+      let globalScale = 2;
+      
+      /******************************************
+       * Set Up Canvas and Overlay with Scaling *
+       ******************************************/
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const overlayCanvas = document.getElementById('overlayCanvas');
+      const overlayCtx = overlayCanvas.getContext('2d');
+      // Add rapidity canvas
+      const rapidityCanvas = document.getElementById('rapidityCanvas');
+      const rapidityCtx = rapidityCanvas.getContext('2d');
+      
+      // updateCanvasSizes() sets the canvas "internal" dimensions (in pixels)
+      // to be the logical dimensions multiplied by globalScale.
+      // The CSS sizes remain at the logical values.
+      function updateCanvasSizes() {
+        canvas.width = logicalWidth * globalScale;
+        canvas.height = logicalHeight * globalScale;
+        canvas.style.width = logicalWidth + "px";
+        canvas.style.height = logicalHeight + "px";
+        
+        overlayCanvas.width = logicalOverlayWidth * globalScale;
+        overlayCanvas.height = logicalOverlayHeight * globalScale;
+        overlayCanvas.style.width = logicalOverlayWidth + "px";
+        overlayCanvas.style.height = logicalOverlayHeight + "px";
+        
+        // Set up rapidity canvas
+        rapidityCanvas.width = logicalWidth * globalScale;
+        rapidityCanvas.height = logicalHeight * globalScale;
+        rapidityCanvas.style.width = logicalWidth + "px";
+        rapidityCanvas.style.height = logicalHeight + "px";
+        rapidityCanvas.style.position = 'absolute';
+      }
+      updateCanvasSizes();
+      
+      /************************************
+       * Simulation & Drawing Parameters  *
+       ************************************/
+      //#region
+      let showHyperbolas = true;
+      let showRapidityLines = true;
+      let showLightAxis = true;
+      // "scale" converts simulation units to canvas pixels in our logical space.
+      let scale = 10;
+      
+      // Hyperbola and rapidity parameters
+      const aSpacing = 5;
+      const minA = 0;
+      const maxA = 40;
+      const MAX_THETA = 10;
+      const THETA_STEP = 0.1;
+
+      
+      // Observer state (Minkowski coordinates)
+      let tau = 0, observerT = 0, observerX = 0, observerRapidity = 0, rapidityHistory = 0;
+      let worldline = [{ T: observerT, X: observerX }];
+      
+      // Background events (stored in Minkowski coordinates)
+      let backgroundEvents = [];
+      
+      // Spawn settings
+      const spawnMargin = 1;
+      let spawnDensity = 3;
+      const idleDensityMultiplier = 0.3;
+      
+      // Keyboard input
+      const keys = {};
+      window.addEventListener('keydown', e => { keys[e.key] = true; });
+      window.addEventListener('keyup', e => { keys[e.key] = false; });
+      
+      // Control variables for simulation speed and acceleration
+      let simulationSpeed = 1;
+
+
+      let properAcceleration = 1;
+
+      // Add rapidity line parameters
+      const RAPIDITY_LINES = {
+        count: 12,
+        snapInterval: 0.5,
+        maxOffset: Math.PI * 2,
+        baseRadius: 1000
+      };
+      let rapidityLines = Array.from({length: RAPIDITY_LINES.count}, (_, i) => 
+        (i * 2 * Math.PI) / RAPIDITY_LINES.count
+      );
+      let rapidityOffset = 0;
+      //#endregion
+      const lineCount = 24;
+      const RAPIDITY_MOD_INTERVAL = (2 * Math.PI)/24;
+      let lastRapidity =0
+
+      
+      
+      /**********************
+       * Utility Functions  *
+       **********************/
+      //#region
+      // Lorentz Transformation: converts an event (in Minkowski coordinates)
+      // to the observer's instantaneous rest frame.
+      function lorentzTransform(event, currentT, currentX, phi) {
+        const dT = event.T - currentT;
+        const dX = event.X - currentX;
+        const tprime = Math.cosh(phi) * dT - Math.sinh(phi) * dX;
+        const xprime = Math.cosh(phi) * dX - Math.sinh(phi) * dT;
+        return { t: tprime, x: xprime };
+      }
+      
+      // Convert simulation coordinates (x,t) into canvas coordinates (logical space).
+      // (0,0) is at the center of our logical simulation area.
+      function simToCanvasCoords(x, t) {
+        const cx = logicalWidth / 2 + x * scale;
+        const cy = logicalHeight / 2 - t * scale;
+        return { x: cx, y: cy };
+      }
+      //#endregion
+      
+
+
+
+
+      // Styles for drawn lines
+      //#region
+
+      const hyperbolaStyles = {
+        vertical: { strokeStyle: "#aaad9b44", lineWidth: 0.5 },
+        horizontal: { strokeStyle: "#aaad9b44", lineWidth: 0.5 }
+      };
+      const rapidityStyles = {
+        vertical: { strokeStyle: "#aaad9b44", lineWidth: 0.3 },
+      };
+      
+      //#endregion
+
+
+
+
+      /***********************
+       * Control Setup       *
+       ***********************/
+
+      //#region
+
+      const speedSlider = document.getElementById('speedSlider');
+      const densitySlider = document.getElementById('densitySlider');
+      const accelSlider = document.getElementById('accelSlider');
+      const scaleSlider = document.getElementById('scaleSlider');
+      const globalScaleSlider = document.getElementById('globalScaleSlider');
+      
+      const speedValue = document.getElementById('speedValue');
+      const densityValue = document.getElementById('densityValue');
+      const accelValue = document.getElementById('accelValue');
+      const scaleDisplay = document.getElementById('scaleDisplay');
+      const globalScaleDisplay = document.getElementById('globalScaleDisplay');
+      
+
+
+      
+      speedSlider.addEventListener('input', e => {
+        simulationSpeed = e.target.value / 100;
+        speedValue.textContent = e.target.value;
+      });
+      densitySlider.addEventListener('input', e => {
+        spawnDensity = (e.target.value / 50);
+        densityValue.textContent = e.target.value;
+      });
+      accelSlider.addEventListener('input', e => {
+        properAcceleration = (e.target.value / 100) ;
+        accelValue.textContent = e.target.value;
+      });
+      scaleSlider.addEventListener('input', e => {
+        scale = Number(e.target.value);
+        scaleDisplay.textContent = e.target.value;
+      });
+      globalScaleSlider.addEventListener('input', e => {
+        globalScale = Number(e.target.value)*2;
+        globalScaleDisplay.textContent = e.target.value;
+        updateCanvasSizes();
+      });
+      //#endregion
+
+
+
+
+
+      /*********************************
+       * Simulation Update Functions   *
+       *********************************/
+      //#region
+
+      /*********************************
+       * Rapidity Line Animation       *
+       *********************************/
+      let isRapidityAnimating = false;
+      let rapidityAlpha = 0;
+
+
+
+      function updateObserver(dt) {
+        let acceleration = 0;
+        if (keys['ArrowLeft']) acceleration = -properAcceleration;
+        else if (keys['ArrowRight']) acceleration = properAcceleration;
+        
+        // Update rapidity offset and snap lines when crossing interval
+        const prevOffset = rapidityOffset;
+        rapidityOffset += acceleration * dt;
+        
+        // Snap back mechanism
+        if (Math.abs(rapidityOffset) >= RAPIDITY_LINES.snapInterval) {
+          const snapCount = Math.floor(rapidityOffset / RAPIDITY_LINES.snapInterval);
+          rapidityOffset %= RAPIDITY_LINES.snapInterval;
+          rapidityLines = [
+            ...rapidityLines.slice(snapCount), 
+            ...rapidityLines.slice(0, snapCount)
+          ];
+        }
+
+        // Update actual observer rapidity
+        observerRapidity += acceleration * dt         ;
+        observerT += Math.cosh(observerRapidity) * dt *simulationSpeed * flowRate  ;
+        observerX += Math.sinh(observerRapidity) * dt * simulationSpeed * flowRate ;
+        tau += dt * simulationSpeed * flowRate ;
+
+        
+        if(observerRapidity !== lastRapidity) {
+          rapidityCtx.save();
+          rapidityCtx.scale(globalScale, globalScale);
+          rapidityCtx.clearRect(0, 0, logicalWidth, logicalHeight);
+          rapidityCtx.restore();
+          drawRapidityLines(lineCount);
+          lastRapidity = observerRapidity;
+        } 
+
+      }
+      
+      function addWorldlineEvent() {
+        worldline.push({ T: observerT, X: observerX });
+        while (worldline.length && worldline[0].T < observerT - 800) {
+          worldline.shift();
+        }
+      }
+      
+      function updateBackgroundEvents(dt) {
+        const visibleHalfWidth = logicalWidth / (2 * scale);
+        const visibleHalfHeight = logicalHeight / (2 * scale);
+        const visibleRegion = {
+          xMin: -visibleHalfWidth,
+          xMax: visibleHalfWidth,
+          tMin: -visibleHalfHeight,
+          tMax: visibleHalfHeight
+        };
+        const extendedRegion = {
+          xMin: visibleRegion.xMin - spawnMargin,
+          xMax: visibleRegion.xMax + spawnMargin,
+          tMin: visibleRegion.tMin - spawnMargin,
+          tMax: visibleRegion.tMax + spawnMargin
+        };
+        const areaExtended = (extendedRegion.xMax - extendedRegion.xMin) * (extendedRegion.tMax - extendedRegion.tMin);
+        const areaVisible = (visibleRegion.xMax - visibleRegion.xMin) * (visibleRegion.tMax - visibleRegion.tMin);
+        const spawnBandArea = areaExtended - areaVisible;
+        
+        const isBoosting = keys['ArrowLeft'] || keys['ArrowRight'];
+        const effectiveDensity = isBoosting ? spawnDensity : spawnDensity * idleDensityMultiplier;
+        const expectedNewEvents = effectiveDensity * spawnBandArea * dt;
+        const nNew = Math.floor(expectedNewEvents) + (Math.random() < (expectedNewEvents % 1) ? 1 : 0);
+        
+        for (let k = 0; k < nNew; k++) {
+          let rx, rt;
+          do {
+            rx = extendedRegion.xMin + Math.random() * (extendedRegion.xMax - extendedRegion.xMin);
+            rt = extendedRegion.tMin + Math.random() * (extendedRegion.tMax - extendedRegion.tMin);
+          } while (
+            rx >= visibleRegion.xMin && rx <= visibleRegion.xMax &&
+            rt >= visibleRegion.tMin && rt <= visibleRegion.tMax
+          );
+          const coshPhi = Math.cosh(observerRapidity);
+          const sinhPhi = Math.sinh(observerRapidity);
+          const T = coshPhi * rt + sinhPhi * rx + observerT;
+          const X = sinhPhi * rt + coshPhi * rx + observerX;
+          backgroundEvents.push({
+            T: T, 
+            X: X,
+            size: Math.floor(Math.random() * 2) ,
+            color: "rgba(255, 255, 255, " + (Math.random() * 0.3 + 0.3).toFixed(2) + ")"
+          });
+        }
+        
+        backgroundEvents = backgroundEvents.filter(ev => {
+          const p = lorentzTransform(ev, observerT, observerX, observerRapidity);
+          return (p.x >= extendedRegion.xMin && p.x <= extendedRegion.xMax &&
+                  p.t >= extendedRegion.tMin && p.t <= extendedRegion.tMax);
+        });
+      }
+      //#endregion
+      
+      /*****************************
+       * Drawing Functions         *
+       *****************************/
+      // Hyperbolas
+      //#region
+      // Draw hyperbolas (which flow with time)
+      function drawHyperbola(a, isUpper) {
+        // Only apply fade to hyperbolas closest to center
+        const isNewHyperbola = a < minA + aSpacing * 2; // Adjust multiplier as needed
+        
+        if(isNewHyperbola) {
+          const fadeProgress = (a - minA) / aSpacing; // 0-1
+          ctx.globalAlpha = Math.min(1, fadeProgress * 2); // Linear fade-in
+        } else {
+          ctx.globalAlpha = 1;
+        }
+        
+        ctx.beginPath();
+        for (let theta = -MAX_THETA; theta <= MAX_THETA; theta += THETA_STEP) {
+          const x = a * Math.sinh(theta);
+          const t = a * Math.cosh(theta) * (isUpper ? -1 : 1);
+          const transformed = lorentzTransform(
+            {T: observerT + t, X: observerX + x},
+            observerT, observerX, observerRapidity
+          );
+          const pos = simToCanvasCoords(transformed.x, transformed.t);
+          if (theta === -MAX_THETA) ctx.moveTo(pos.x, pos.y);
+          else ctx.lineTo(pos.x, pos.y);
+        }
+        Object.assign(ctx, hyperbolaStyles.vertical);
+        ctx.stroke();
+        
+        if(isNewHyperbola) ctx.globalAlpha = 1; // Reset alpha
+      }
+      
+
+      // Draw static hyperbolas fixed in the observer's frame
+      function drawStaticHyperbola(a) {
+        ctx.beginPath();
+        for (let theta = -MAX_THETA; theta <= MAX_THETA; theta += THETA_STEP) {
+          const x = a * Math.cosh(theta);
+          const t = a * Math.sinh(theta);
+          const pos = simToCanvasCoords(x, t);
+          ctx.lineTo(pos.x, pos.y);
+        }
+        Object.assign(ctx, hyperbolaStyles.horizontal);
+        ctx.stroke();
+      }
+      //#endregion
+
+
+      
+      
+      //Number Lines
+      //#region
+      // Logarithmic scale settings for the axis drawing
+      const LOG_SETTINGS = {
+        minMagnitude: 0,
+        maxMagnitude: 5,
+        labelTriggerX: 0.005,
+        minLabelSpacing: 1
+      };
+      const LOG_TICKS = (() => {
+        let ticks = [];
+        for (let exp = LOG_SETTINGS.minMagnitude; exp <= LOG_SETTINGS.maxMagnitude; exp++) {
+          const mag = Math.pow(10, exp);
+          for (let i = 1; i <= 9; i++) {
+            ticks.push(i * mag);
+          }
+        }
+        ticks.push(10);
+        return ticks.sort((a, b) => a - b);
+      })();
+      const SUPERSCRIPT_MAP = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        '-': '⁻'
+      };
+      function formatScientific(number) {
+        if (number >= 1 && number < 1000 && Number.isInteger(number)) return number.toString();
+        const [coefficient, exponent] = number.toExponential(2).split('e');
+        const cleanCoefficient = coefficient.replace(/\.?0+$/, '');
+        const expParts = exponent.replace('+', '').split('');
+        const superscript = expParts.map(c => SUPERSCRIPT_MAP[c] || c).join('');
+        return `${cleanCoefficient}×10${superscript}`;
+      }
+      
+      // Draw horizontal number line (axis) on the overlay canvas.
+      function drawHorizontalNumberLine() {
+        overlayCtx.save();
+        overlayCtx.scale(globalScale, globalScale);
+        
+        const { labelTriggerX, minLabelSpacing } = LOG_SETTINGS;
+        const nlLeft = 100, nlRight = 100, nlBottom = 90;
+        const lineY = logicalOverlayHeight - nlBottom;
+        const lineXStart = nlLeft, lineXEnd = logicalOverlayWidth - nlRight;
+        const lineLength = lineXEnd - lineXStart;
+        const f = 1/Math.cosh(observerRapidity);
+
+        overlayCtx.lineWidth = 2 / globalScale;
+        overlayCtx.strokeStyle = "#ffffff";
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(lineXStart, lineY);
+        overlayCtx.lineTo(lineXEnd, lineY);
+        overlayCtx.stroke();
+        
+        overlayCtx.font = "10px Consolas";
+        overlayCtx.fillStyle = "#ffffff";
+        [0, 5, 10].forEach(v => {
+          let x = lineXStart + (v / 10) * lineLength;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(x, lineY);
+          overlayCtx.lineTo(x, lineY + 15);
+          overlayCtx.stroke();
+          // Only draw labels for 0 and 10
+          if (v === 0 || v === 10) {
+            overlayCtx.fillText(v.toString(), x - 3, lineY + 30);
+          }
+        });
+        let lastLabelX = -Infinity;
+        LOG_TICKS.forEach(t => {
+          const xPos = lineXStart + (t * f / 10) * lineLength;
+          if (xPos < lineXStart - 100 || xPos > lineXEnd + 100) return;
+          const isRightSide = xPos > (lineXStart + lineXEnd) / 2;
+          if (isRightSide) {
+            const rightEdgeProximity = (lineXEnd - xPos) / (lineLength * 0.1);
+            const opacity = Math.min(1, Math.max(0, rightEdgeProximity));
+            overlayCtx.globalAlpha = opacity;
+          }
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(xPos, lineY);
+          overlayCtx.lineTo(xPos, lineY + 8);
+          overlayCtx.stroke();
+          if (isRightSide) overlayCtx.globalAlpha = 1;
+          
+
+          
+          const leftBound = lineXStart + (lineLength * labelTriggerX);
+          const rightBound = lineXEnd - (lineLength * labelTriggerX);
+          const canLabel = xPos > leftBound && xPos < rightBound;
+          const spacingOK = (xPos - lastLabelX) >= minLabelSpacing;
+          if (canLabel && spacingOK) {
+            const labelText = formatScientific(t);
+            const edgeDistance = Math.min(
+              (xPos - leftBound) / (lineLength * 0.1),
+              (rightBound - xPos) / (lineLength * 0.1)
+            );
+            const opacity = Math.min(1, Math.max(0, edgeDistance));
+            overlayCtx.globalAlpha = opacity;
+            overlayCtx.fillText(labelText, xPos - overlayCtx.measureText(labelText).width / 2, lineY + 20);
+            overlayCtx.globalAlpha = 1;
+            lastLabelX = xPos;
+          }
+        });
+        
+        let ogX = lineXStart + (10 * f / 20) * lineLength;
+        ogX = Math.max(lineXStart, Math.min(lineXEnd, ogX));
+        overlayCtx.fillStyle = "#ffff00";
+        overlayCtx.beginPath();
+        overlayCtx.arc(ogX, lineY, 3, 0, 2 * Math.PI);
+        overlayCtx.fill();
+        overlayCtx.fillStyle = "#ffff00";
+        overlayCtx.fillText("Original", ogX - 20, lineY + 45);
+        
+        overlayCtx.restore();
+      }
+      
+      // Draw vertical number line (axis) on the overlay canvas.
+      function drawVerticalNumberLine() {
+        overlayCtx.save();
+        overlayCtx.scale(globalScale, globalScale);
+        
+        const { labelTriggerX, minLabelSpacing } = LOG_SETTINGS;
+        const nlRight = 90, nlTop = 100, nlBottom = 100;
+        const lineX = logicalOverlayWidth - nlRight;
+        const lineYStart = logicalOverlayHeight - nlBottom, lineYEnd = nlTop;
+        const lineLength = lineYStart - lineYEnd;
+        const f = 1/Math.cosh(observerRapidity);
+
+        overlayCtx.lineWidth = 2 / globalScale;
+        overlayCtx.strokeStyle = "#ffffff";
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(lineX, lineYStart);
+        overlayCtx.lineTo(lineX, lineYEnd);
+        overlayCtx.stroke();
+        
+        overlayCtx.font = "10px Consolas";
+        overlayCtx.fillStyle = "#ffffff";
+        overlayCtx.strokeStyle = "#ffffff";
+        [0, 5, 10].forEach(v => {
+          let y = lineYStart - (v / 10) * lineLength;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(lineX, y);
+          overlayCtx.lineTo(lineX + 15, y);
+          overlayCtx.stroke();
+          if (v === 0 || v === 10) {
+          overlayCtx.fillText(v.toString(), lineX + 30, y + 3)
+          }
+        });
+ 
+        let lastLabelY = Infinity;
+        LOG_TICKS.forEach(t => {
+          const yPos = lineYStart - (t * f / 10) * lineLength;
+          if (yPos < lineYEnd - 100 || yPos > lineYStart + 100) return;
+          const isTopSide = yPos < (lineYStart + lineYEnd) / 2;
+          if (isTopSide) {
+            const topEdgeProximity = (yPos - lineYEnd) / (lineLength * 0.1);
+            const opacity = Math.min(1, Math.max(0, topEdgeProximity));
+            overlayCtx.globalAlpha = opacity;
+          }
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(lineX, yPos);
+          overlayCtx.lineTo(lineX + 8, yPos);
+          overlayCtx.stroke();
+          if (isTopSide) overlayCtx.globalAlpha = 1;
+          
+
+          
+          const topBound = lineYEnd + (lineLength * labelTriggerX);
+          const bottomBound = lineYStart - (lineLength * labelTriggerX);
+          const canLabel = yPos > topBound && yPos < bottomBound;
+          const spacingOK = (lastLabelY - yPos) >= minLabelSpacing;
+          if (canLabel && spacingOK) {
+            const labelText = formatScientific(t);
+            const edgeDistance = Math.min(
+              (yPos - topBound) / (lineLength * 0.1),
+              (bottomBound - yPos) / (lineLength * 0.1)
+            );
+            const opacity = Math.min(1, Math.max(0, edgeDistance));
+            overlayCtx.globalAlpha = opacity;
+            overlayCtx.fillText(labelText, lineX + 15, yPos + 3);
+            overlayCtx.globalAlpha = 1;
+            lastLabelY = yPos;
+          }
+        });
+        let ogY = lineYStart - (10 * f / 20) * lineLength;
+        ogY = Math.max(lineYEnd, Math.min(lineYStart, ogY));
+        overlayCtx.fillStyle = "#ffff00";
+        overlayCtx.beginPath();
+        overlayCtx.arc(lineX, ogY, 3, 0, 2 * Math.PI);
+        overlayCtx.fill();
+        overlayCtx.fillText("Original", lineX + 40, ogY + 3);
+        
+        overlayCtx.restore();
+      }
+      
+      //#endregion
+
+
+
+      // Main draw function + animation loop
+      //#region
+      function draw() {
+        // Clear main canvas (reset transforms first)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        
+        // Clear overlay canvas
+        overlayCtx.save();
+        overlayCtx.setTransform(1, 0, 0, 1, 0, 0);
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayCtx.restore();
+        
+        // Draw simulation on main canvas:
+        // Wrap drawing in a scale transform so that our drawing routines work in logical coordinates.
+        ctx.save();
+        ctx.scale(globalScale, globalScale);
+        
+        
+        // Draw background events
+        for (const ev of backgroundEvents) {
+          const trans = lorentzTransform(ev, observerT, observerX, observerRapidity);
+          const pos = simToCanvasCoords(trans.x, trans.t);
+          if (pos.x < -10 || pos.x > logicalWidth + 10 || pos.y < -10 || pos.y > logicalHeight + 10) continue;
+          ctx.beginPath();
+          const size = (ev.size || 2) * 1.5;
+          ctx.fillStyle = ev.color || "rgba(255, 255, 255, 0.2)";
+          ctx.fillRect(pos.x - size/2, pos.y - size/2, size, size);
+        }
+        
+        // Draw hyperbola visualizations:
+        if(showHyperbolas) {
+          const timeFlow = tau % aSpacing;
+          for (let a = minA + timeFlow; a < maxA; a += aSpacing) {
+            drawHyperbola(a, true);
+          }
+          for (let a = maxA - timeFlow; a >= minA; a -= aSpacing) {
+            drawHyperbola(a, false);
+          }
+          for (let a = maxA; a >= minA; a -= aSpacing) {
+            drawStaticHyperbola(a);
+            drawStaticHyperbola(-a);
+          }
+        }
+
+        
+        // Draw observer's worldline
+        ctx.shadowBlur = 1;
+        ctx.shadowColor = "#b8ea0f";
+        for (const ev of worldline) {
+          const trans = lorentzTransform(ev, observerT, observerX, observerRapidity);
+          const pos = simToCanvasCoords(trans.x, trans.t);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = "#b8ea0f";
+          ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        
+        // Draw observer's current position as a larger green circle
+        const obsPos = simToCanvasCoords(0, 0);
+        ctx.beginPath();
+        ctx.arc(obsPos.x, obsPos.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = "#b8ea0f";
+        ctx.fill();
+        
+        // Draw overlay text (on main canvas) for information
+        ctx.fillStyle = "#b8ea0f";
+        ctx.font = "16px Consolas";
+        const v = Math.tanh(observerRapidity);
+        ctx.fillText("v: " + v.toFixed(3), 10, 20);
+        ctx.fillText("rapidity: " + observerRapidity.toFixed(3), 10, 40);
+        ctx.fillText("τ: " + (tau/flowRate).toFixed(3), 10, 60);
+        ctx.fillText("T: " + (observerT/flowRate).toFixed(3), 10, 80);
+        
+        ctx.restore();
+        
+        // Draw rapidity lines on their own canvas
+        
+        // Draw overlay (axis number lines) on the overlay canvas with global scaling.
+        drawHorizontalNumberLine();
+        drawVerticalNumberLine();
+
+        // Draw light axis lines
+        drawLightAxis();
+      }
+      drawRapidityLines(lineCount);
+
+      
+
+      let lastTime = null;
+      function animate(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = (timestamp - lastTime) / (1000);
+        lastTime = timestamp;
+        
+        updateObserver(dt);
+        addWorldlineEvent();
+        updateBackgroundEvents(dt);
+        draw();
+        
+        requestAnimationFrame(animate);
+      }
+      //#endregion
+      
+      requestAnimationFrame(animate);
+
+      /*****************************
+       * Rapidty Line Drawing      *
+       *****************************/
+      function drawRapidityLines(lineCount) {
+        if(!showRapidityLines) return;
+        rapidityCtx.save();
+        rapidityCtx.scale(globalScale, globalScale);
+        
+        // Calculate wrapped rapidity using MOD
+        const wrappedRapidity = observerRapidity % RAPIDITY_MOD_INTERVAL;
+        
+        // Draw lines in both directions
+        const angleStep = (2 * Math.PI)/(lineCount);
+        
+        // Set common style properties once
+        Object.assign(rapidityCtx, rapidityStyles.vertical);
+
+
+        for(let i = -8; i < 8; i++) {
+            const theta = i * angleStep + wrappedRapidity;
+            const dirX = Math.sinh(theta);
+            const dirT = Math.cosh(theta);
+            
+            // Find edge intersection
+            const maxDim = Math.max(logicalWidth, logicalHeight)/scale;
+            const ratio = maxDim / Math.sqrt(dirX*dirX + dirT*dirT);
+            const endTop = simToCanvasCoords(-dirX * ratio, dirT * ratio);
+            const endBottom = simToCanvasCoords(dirX * ratio, -dirT * ratio);
+
+            rapidityCtx.beginPath();
+            rapidityCtx.moveTo(logicalWidth/2, logicalHeight/2);
+            rapidityCtx.lineTo(endBottom.y, endBottom.x);
+            rapidityCtx.stroke();
+
+            rapidityCtx.beginPath();
+
+            rapidityCtx.beginPath();
+            rapidityCtx.moveTo(logicalWidth/2, logicalHeight/2);
+            rapidityCtx.lineTo(endTop.y, endTop.x);
+            rapidityCtx.stroke();
+            rapidityCtx.beginPath();
+
+
+            rapidityCtx.beginPath();
+            rapidityCtx.moveTo(logicalWidth/2, logicalHeight/2);
+            rapidityCtx.lineTo(endBottom.x, endBottom.y);
+            rapidityCtx.stroke();
+            rapidityCtx.beginPath();
+
+            rapidityCtx.moveTo(logicalWidth/2, logicalHeight/2);
+            rapidityCtx.lineTo(endTop.x, endTop.y);
+            rapidityCtx.stroke();
+        }
+        
+        rapidityCtx.restore();
+      }
+
+      let flowRate = 10;
+      const flowRateSlider = document.getElementById('flowRateSlider');
+      const flowRateValue = document.getElementById('flowRateValue');
+
+      flowRateSlider.addEventListener('input', e => {
+        flowRate = e.target.value / 10; // Convert percentage to multiplier
+        flowRateValue.textContent = e.target.value;
+      });
+
+      // Add event listener for the checkbox
+      document.getElementById('toggleVisuals').addEventListener('change', function(e) {
+        showHyperbolas = e.target.checked;
+        showRapidityLines = e.target.checked;
+        showLightAxis = e.target.checked;
+        
+        // Force redraw of rapidity lines
+        if(showRapidityLines) {
+          drawRapidityLines(lineCount);
+        } else {
+          rapidityCtx.save();
+          rapidityCtx.scale(globalScale, globalScale);
+          rapidityCtx.clearRect(0, 0, logicalWidth, logicalHeight);
+          rapidityCtx.restore();
+        }
+      });
+
+      function drawLightAxis() {
+        if (!showLightAxis) return;
+        
+        ctx.save();
+        ctx.scale(globalScale, globalScale);
+        const center = { x: logicalWidth/2, y: logicalHeight/2 };
+        const length = Math.max(logicalWidth, logicalHeight);
+        const phase = (tau * 2) % (Math.PI * 2);
+        
+        // Common style properties
+        ctx.strokeStyle = "#b8ea0f55";
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "#b8ea0f";
+        ctx.globalAlpha = 1;
+
+        // Draw positive slope (x=y) with left-moving dashes
+        ctx.setLineDash([10, 0]);
+        ctx.lineDashOffset = 0;
+        ctx.beginPath();
+        ctx.moveTo(center.x - length, center.y - length);
+        ctx.lineTo(center.x + length, center.y + length);
+        ctx.stroke();
+
+        // Draw negative slope (x=-y) with right-moving dashes
+        ctx.setLineDash([10, 0]);
+        ctx.lineDashOffset = 0; // Reverse the offset direction
+        ctx.beginPath();
+        ctx.moveTo(center.x - length, center.y + length);
+        ctx.lineTo(center.x + length, center.y - length);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+    </script>
+  </body>
+</html>
